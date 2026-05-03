@@ -116,7 +116,7 @@ def _load_models(sport_dir: str, prefix: str, model_names: list[str]) -> dict:
 print("Loading NBA modules...")
 _nba_models = _load_models(NBA_DIR, "nba", ["ev_engine", "prop_model", "game_model"])
 
-NBA_MODULES = ["config", "database", "nba_data", "trade_log", "kalshi_client", "odds_client", "scanner"]
+NBA_MODULES = ["config", "database", "nba_data", "trade_log", "kalshi_client", "odds_client", "espn_nba", "scanner"]
 _nba = _load_sport_modules(NBA_DIR, "nba", NBA_MODULES)
 
 nba_config   = sys.modules["nba.config"]
@@ -265,7 +265,7 @@ async def pga_leaderboard():
 
 # ─── Scanner cores ────────────────────────────────────────────────────────────
 
-_NBA_LAZY = ["config", "database", "nba_data", "trade_log", "kalshi_client", "odds_client", "scanner"]
+_NBA_LAZY = ["config", "database", "nba_data", "trade_log", "kalshi_client", "odds_client", "espn_nba", "scanner"]
 _PGA_LAZY = ["config", "database", "ev_engine", "espn_client", "finishing_scanner",
              "kalshi_client", "odds_client", "scanner"]
 
