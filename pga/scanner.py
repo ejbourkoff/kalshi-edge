@@ -422,10 +422,15 @@ def _scan_finishing_positions(kalshi: "KalshiPGAClient") -> list[dict]:
     Matches the live ESPN event to the correct Kalshi event suffix.
     """
     try:
-        from espn_client import get_live_leaderboard
-        from finishing_scanner import scan_finishing_positions
-    except ImportError as e:
-        print(f"  [Finishing scan] Import error: {e}")
+        import sys as _sys
+        _espn = _sys.modules.get("pga.espn_client") or _sys.modules.get("espn_client")
+        _fin  = _sys.modules.get("pga.finishing_scanner") or _sys.modules.get("finishing_scanner")
+        if not _espn or not _fin:
+            raise ImportError(f"espn_client={bool(_espn)}, finishing_scanner={bool(_fin)}")
+        get_live_leaderboard    = _espn.get_live_leaderboard
+        scan_finishing_positions = _fin.scan_finishing_positions
+    except (ImportError, AttributeError) as e:
+        print(f"  [Finishing scan] module lookup failed: {e}")
         return []
 
     espn_data = get_live_leaderboard()

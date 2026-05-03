@@ -174,7 +174,11 @@ class KalshiPGAClient:
         Fetch Top 5/10/20 finishing position markets for a specific event.
         Returns {5: [markets], 10: [markets], 20: [markets]}
         """
-        from finishing_scanner import FINISHING_SERIES
+        import sys as _sys
+        _fin = _sys.modules.get("pga.finishing_scanner") or _sys.modules.get("finishing_scanner")
+        if not _fin:
+            return {}
+        FINISHING_SERIES = _fin.FINISHING_SERIES
         result: dict[int, list[dict]] = {}
 
         for threshold, series in FINISHING_SERIES.items():
@@ -197,7 +201,11 @@ class KalshiPGAClient:
 
     def get_active_finishing_events(self) -> list[str]:
         """Return event suffixes that have active finishing-position markets (liquid + priced)."""
-        from finishing_scanner import FINISHING_SERIES
+        import sys as _sys
+        _fin = _sys.modules.get("pga.finishing_scanner") or _sys.modules.get("finishing_scanner")
+        if not _fin:
+            return []
+        FINISHING_SERIES = _fin.FINISHING_SERIES
         active = set()
         for series in FINISHING_SERIES.values():
             data = self._get("/markets", params={
