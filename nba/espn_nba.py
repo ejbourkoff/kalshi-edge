@@ -50,7 +50,11 @@ def get_player_averages() -> dict[str, dict]:
 
 
 def _fetch_leaders() -> dict[str, dict]:
-    """Fetch from ESPN leaders endpoint — covers top ~100 players per stat."""
+    """
+    Fetch from ESPN leaders endpoint — covers top ~100 players per stat.
+    Tries regular season (seasontype=2) first, falls back to playoffs (3).
+    Always requests season=2025 explicitly so we get current-year stats.
+    """
     cat_map = {
         "ptsLeader": "pts",
         "rebLeader": "reb",
@@ -58,33 +62,51 @@ def _fetch_leaders() -> dict[str, dict]:
         "stlLeader": "stl",
         "blkLeader": "blk",
         "3pmLeader": "thr",
+        # alternate names ESPN uses in some seasons
+        "points":    "pts",
+        "rebounds":  "reb",
+        "assists":   "ast",
+        "steals":    "stl",
+        "blocks":    "blk",
+        "threePointFieldGoalsMade": "thr",
     }
     result: dict[str, dict] = {}
-    try:
-        data = requests.get(
-            _ESPN_LEADERS,
-            params={"seasontype": "2", "limit": "150"},
-            headers={"User-Agent": "Mozilla/5.0"},
-            timeout=8,
-        ).json()
-    except Exception as e:
-        print(f"[ESPN NBA] leaders error: {e}")
-        return result
 
-    for cat in data.get("categories", []):
-        key = cat_map.get(cat.get("name", ""))
-        if not key:
+    for seasontype in ("2", "3"):  # regular season, then playoffs
+        try:
+            data = requests.get(
+                _ESPN_LEADERS,
+                params={"season": "2025", "seasontype": seasontype, "limit": "150"},
+                headers={"User-Agent": "Mozilla/5.0"},
+                timeout=8,
+            ).json()
+        except Exception as e:
+            print(f"[ESPN NBA] leaders error (seasontype={seasontype}): {e}")
             continue
-        for leader in cat.get("leaders", []):
-            name = (leader.get("athlete") or {}).get("displayName", "").lower()
-            if not name:
-                continue
-            try:
-                val = float(leader.get("statistics", 0) or leader.get("displayValue", 0))
-            except (TypeError, ValueError):
-                continue
-            result.setdefault(name, {})[key] = val
 
+        for cat in data.get("categories", []):
+            key = cat_map.get(cat.get("name", ""))
+            if not key:
+                continue
+            for leader in cat.get("leaders", []):
+                athlete = leader.get("athlete") or {}
+                name = athlete.get("displayName", "").lower()
+                if not name:
+                    continue
+                # ESPN returns stats as a string like "32.7" or nested object
+                raw_val = leader.get("statistics") or leader.get("displayValue") or "0"
+                try:
+                    val = float(str(raw_val).split()[0].replace(",", ""))
+                except (TypeError, ValueError):
+                    continue
+                result.setdefault(name, {})[key] = val
+
+        if result:
+            print(f"[ESPN NBA] loaded {len(result)} players (seasontype={seasontype})")
+            break
+
+    if not result:
+        print("[ESPN NBA] leaders returned 0 players — prop model disabled")
     return result
 
 
