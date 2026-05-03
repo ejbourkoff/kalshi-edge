@@ -44,10 +44,20 @@ TOURNAMENT_MAP = {
 
 # The Odds API sport key for each Kalshi event suffix
 TOURNAMENT_ODDS_KEY = {
-    "PGC26":  "golf_pga_championship_winner",
-    "MAST26": "golf_masters_tournament_winner",
-    "USOP26": "golf_us_open_winner",
-    "BRIT26": "golf_the_open_championship_winner",
+    "PGC26":    "golf_pga_championship_winner",
+    "MAST26":   "golf_masters_tournament_winner",
+    "USOP26":   "golf_us_open_winner",
+    "BRIT26":   "golf_the_open_championship_winner",
+    "PLAY26":   "golf_the_players_championship_winner",
+    "CAC26":    "golf_wgc_cadillac_championship_winner",
+    "WELLS26":  "golf_wells_fargo_championship_winner",
+    "MEMO26":   "golf_memorial_tournament_winner",
+    "TRAX26":   "golf_travelers_championship_winner",
+    "CANADI26": "golf_canadian_open_winner",
+    "GENSC26":  "golf_scottish_open_winner",
+    "BYRON26":  "golf_att_byron_nelson_winner",
+    "RBH26":    "golf_rbc_heritage_winner",
+    "RBCH26":   "golf_rbc_heritage_winner",
 }
 
 

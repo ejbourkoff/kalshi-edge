@@ -15,7 +15,7 @@ class Config:
     bankroll: float = field(default_factory=lambda: float(os.getenv("BANKROLL", "1000")))
 
     # Edge thresholds
-    min_edge_to_show: float = 0.02     # 2%+ shown in output
+    min_edge_to_show: float = 0.015    # 1.5%+ shown in output
     min_edge_to_bet: float = 0.03      # 3%+ actionable (golf outrights — lower than props)
 
     # Kelly settings
@@ -34,6 +34,6 @@ class Config:
     min_volume_bet: float = 200.0
 
     # Min books confirming an edge (3+ = much stronger consensus)
-    min_books: int = 3
+    min_books: int = 2
 
 config = Config()

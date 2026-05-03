@@ -91,7 +91,7 @@ def _confidence_tier(sportsbook_anchored: bool, gap_pp: float, num_books: int = 
         return "HIGH"
     if sportsbook_anchored and gap_pp >= 1.0:
         return "MEDIUM"
-    if not sportsbook_anchored and gap_pp >= 20.0:
+    if not sportsbook_anchored and gap_pp >= 12.0:
         return "MEDIUM"
     return "LOW"
 
@@ -218,13 +218,15 @@ def scan_internal_consistency(kalshi_markets: list[dict]) -> list[dict]:
 
 # ── Prop scanner ──────────────────────────────────────────────────────────────
 
-def scan_props(kalshi_markets: list[dict], sportsbook_props: list[dict]) -> list[dict]:
+def scan_props(kalshi_markets: list[dict], sportsbook_props: list[dict],
+               espn_avgs: dict | None = None) -> list[dict]:
     """
     Scan prop markets for EV. When sportsbook line is available, use it
     as the true probability directly (no model dilution — books are efficient).
     Model is only used when no sportsbook anchor exists.
     """
     results = []
+    scan_props._espn_avgs = espn_avgs or {}
 
     # Index sportsbook props: (player_lower, stat, line) → entry
     sb_index = {}
@@ -266,10 +268,14 @@ def scan_props(kalshi_markets: list[dict], sportsbook_props: list[dict]) -> list
             model_proj = None
             model_prob = None
         else:
-            # No sportsbook anchor — skip.
-            # Model-only edges require nba_api (stats.nba.com) which is slow/unreliable
-            # in cloud environments. Sportsbook-anchored edges are more reliable anyway.
-            continue
+            # No sportsbook anchor — use ESPN season average model (MEDIUM confidence max)
+            espn_avgs = getattr(scan_props, "_espn_avgs", {})
+            from espn_nba import estimate_over_prob
+            model_prob = estimate_over_prob(player, stat, threshold, espn_avgs)
+            if model_prob is None:
+                continue
+            true_prob = model_prob
+            model_proj = None
 
         kalshi_implied = market["yes_ask"] / 100
         sportsbook_anchored = sb_prob is not None
@@ -278,7 +284,7 @@ def scan_props(kalshi_markets: list[dict], sportsbook_props: list[dict]) -> list
         # Strict filtering: sportsbook needs >1pp gap, model-only needs >20pp
         if sportsbook_anchored and gap_pp < 1.0:
             continue
-        if not sportsbook_anchored and gap_pp < 20.0:
+        if not sportsbook_anchored and gap_pp < 12.0:
             continue
 
         confidence = _confidence_tier(sportsbook_anchored, gap_pp, num_books)
@@ -615,7 +621,14 @@ def run_scan() -> list[dict]:
     print(f"  Found {len(sb_games)} games, {len(sb_props)} prop lines")
 
     print("Running EV scan...")
-    prop_edges = scan_props(markets, sb_props)
+    try:
+        from espn_nba import get_player_averages
+        espn_avgs = get_player_averages()
+        print(f"  ESPN averages loaded: {len(espn_avgs)} players")
+    except Exception as e:
+        print(f"  ESPN averages unavailable: {e}")
+        espn_avgs = {}
+    prop_edges = scan_props(markets, sb_props, espn_avgs)
     game_edges = scan_games(markets, sb_games)
     consistency_edges = scan_internal_consistency(markets)
 

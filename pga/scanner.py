@@ -319,7 +319,39 @@ def run_scan() -> tuple[list[dict], list[dict]]:
 
         sb_players = odds_client.get_tournament_outrights(odds_key)
         if not sb_players:
-            print(f"  {tournament}: no sportsbook data available")
+            print(f"  {tournament}: no sportsbook data — showing as watchlist")
+            # Include all markets as LOW confidence watchlist entries
+            for m in markets:
+                if m.get("volume", 0) < config.min_volume_show:
+                    continue
+                player = m.get("player")
+                if not player:
+                    continue
+                all_edges.append({
+                    "player": player,
+                    "tournament": tournament,
+                    "label": f"{player} — {tournament}",
+                    "yes_ask": m["yes_ask"],
+                    "no_ask": m.get("no_ask", 100 - m["yes_ask"]),
+                    "kalshi_implied": round(m["yes_ask"] / 100, 5),
+                    "sb_prob": None,
+                    "true_prob": round(m["yes_ask"] / 100, 5),
+                    "gap_pp": 0.0,
+                    "ev_yes": 0.0,
+                    "ev_no": 0.0,
+                    "best_side": "WATCH",
+                    "best_ev": 0.0,
+                    "bet_size_$": 0.0,
+                    "actionable": False,
+                    "confidence": "LOW",
+                    "num_books": 0,
+                    "reasoning": "No sportsbook data available — showing Kalshi market price only",
+                    "ticker": m.get("ticker", ""),
+                    "volume": m.get("volume", 0),
+                    "market_type": "outright",
+                    "kalshi_name": player,
+                    "sb_player_name": None,
+                })
             continue
 
         print(f"  {tournament}: {len(markets)} Kalshi markets, {len(sb_players)} book players")
