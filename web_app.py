@@ -265,14 +265,25 @@ async def pga_leaderboard():
 
 # ─── Scanner cores ────────────────────────────────────────────────────────────
 
+_NBA_LAZY = ["config", "database", "nba_data", "trade_log", "kalshi_client", "odds_client", "scanner"]
+_PGA_LAZY = ["config", "database", "ev_engine", "espn_client", "finishing_scanner",
+             "kalshi_client", "odds_client", "scanner"]
+
+
 def _do_nba_scan() -> dict:
     global _nba_latest_parlays
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting NBA scan...")
+    for name in _NBA_LAZY:
+        if f"nba.{name}" in sys.modules:
+            sys.modules[name] = sys.modules[f"nba.{name}"]
     try:
         edges, parlays = nba_scanner.run_scan()
     except Exception as e:
         print(f"[{datetime.now().strftime('%H:%M:%S')}] NBA scan error: {e}")
         edges, parlays = [], []
+    finally:
+        for name in _NBA_LAZY:
+            sys.modules.pop(name, None)
     _nba_latest_parlays = parlays
 
     total = max(len(set(e.get("ticker", "") for e in edges if e.get("ticker"))), len(edges))
@@ -298,7 +309,17 @@ def _do_nba_scan() -> dict:
 def _do_pga_scan() -> dict:
     global _pga_latest_parlays
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting PGA scan...")
-    edges, parlays = pga_scanner.run_scan()
+    for name in _PGA_LAZY:
+        if f"pga.{name}" in sys.modules:
+            sys.modules[name] = sys.modules[f"pga.{name}"]
+    try:
+        edges, parlays = pga_scanner.run_scan()
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] PGA scan error: {e}")
+        edges, parlays = [], []
+    finally:
+        for name in _PGA_LAZY:
+            sys.modules.pop(name, None)
     _pga_latest_parlays = parlays
 
     total = len(edges)
@@ -362,18 +383,28 @@ def _schedule_scans():
     scheduler.start()
     print("Schedulers started — NBA at 3 AM, PGA at 7 AM and 5 PM ET")
 
-    # Startup scans if stale / missing
-    for fn, db_mod, label in [(safe_nba, nba_db, "NBA"), (safe_pga, pga_db, "PGA")]:
+    # Startup scans if stale / missing — stagger by 30s to avoid Kalshi 429
+    import time as _time
+    startup_delay = 0
+    for fn, db_mod, label in [(safe_pga, pga_db, "PGA"), (safe_nba, nba_db, "NBA")]:
         existing = db_mod.get_latest_scan()
+        needs_scan = True
         try:
             if existing and existing.get("scanned_at") and existing.get("edges") is not None:
                 age = datetime.now() - datetime.fromisoformat(existing["scanned_at"])
                 if age < timedelta(hours=3):
                     print(f"  {label}: recent scan ({int(age.total_seconds()/60)}m ago), skipping")
-                    continue
+                    needs_scan = False
         except Exception as e:
             print(f"  {label}: stale/broken scan record ({e}), re-scanning")
-        threading.Thread(target=fn, daemon=True).start()
+        if needs_scan:
+            delay = startup_delay
+            def _start(f=fn, d=delay):
+                if d:
+                    _time.sleep(d)
+                f()
+            threading.Thread(target=_start, daemon=True).start()
+            startup_delay += 30  # next sport waits 30s more
 
 
 # ─── Startup ──────────────────────────────────────────────────────────────────
