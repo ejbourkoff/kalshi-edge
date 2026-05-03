@@ -15,9 +15,17 @@ from datetime import datetime, timedelta
 import uvicorn
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse, FileResponse
-from fastapi.staticfiles import StaticFiles
 
 BASE = os.path.dirname(os.path.abspath(__file__))
+
+# ─── Write private key from env var if present (Railway deployment) ───────────
+_pkey_b64 = os.environ.get("KALSHI_PRIVATE_KEY_B64", "")
+if _pkey_b64:
+    import base64
+    _pkey_path = os.path.join(BASE, "kalshi_private_key.pem")
+    with open(_pkey_path, "wb") as _f:
+        _f.write(base64.b64decode(_pkey_b64))
+    os.environ.setdefault("KALSHI_PRIVATE_KEY_PATH", _pkey_path)
 NBA_DIR = os.path.join(BASE, "nba")
 PGA_DIR = os.path.join(BASE, "pga")
 
