@@ -76,7 +76,7 @@ def _fetch_leaders() -> dict[str, dict]:
         try:
             data = requests.get(
                 _ESPN_LEADERS,
-                params={"season": "2025", "seasontype": seasontype, "limit": "150"},
+                params={"season": "2026", "seasontype": seasontype, "limit": "150"},
                 headers={"User-Agent": "Mozilla/5.0"},
                 timeout=8,
             ).json()
