@@ -1,0 +1,913 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kalshi Edge Scanner</title>
+<style>
+  :root {
+    --bg: #0d1117;
+    --surface: #161b22;
+    --surface2: #1c2128;
+    --border: #30363d;
+    --green: #00e639;
+    --green-dim: #0a3a1a;
+    --yellow: #f0b429;
+    --yellow-dim: #3a2f00;
+    --red: #f85149;
+    --blue: #58a6ff;
+    --blue-dim: #0d2149;
+    --purple: #d2a8ff;
+    --purple-dim: #2d1a2e;
+    --orange: #ffa657;
+    --orange-dim: #2a1a0d;
+    --text: #e6edf3;
+    --muted: #8b949e;
+    --radius: 8px;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; }
+
+  /* ── Header ── */
+  header { border-bottom: 1px solid var(--border); padding: 12px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; background: var(--bg); z-index: 10; }
+  .logo { font-size: 18px; font-weight: 700; color: var(--green); letter-spacing: -0.5px; }
+  .logo span { color: var(--text); }
+  .header-meta { display: flex; gap: 10px; align-items: center; }
+  .badge { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 4px 12px; font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .badge.live { border-color: var(--green); color: var(--green); }
+  .scan-btn { background: var(--green); color: #000; border: none; border-radius: var(--radius); padding: 7px 16px; font-weight: 700; cursor: pointer; font-size: 13px; white-space: nowrap; }
+  .scan-btn:hover { opacity: 0.85; }
+  .scan-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Sport switcher ── */
+  .sport-switcher { display: flex; gap: 0; border-bottom: 2px solid var(--border); padding: 0 24px; background: var(--surface); }
+  .sport-tab { padding: 14px 28px; font-size: 15px; font-weight: 700; cursor: pointer; border-bottom: 3px solid transparent; color: var(--muted); letter-spacing: 0.3px; transition: color 0.15s; margin-bottom: -2px; }
+  .sport-tab.active { border-bottom-color: var(--green); color: var(--text); }
+  .sport-tab:hover { color: var(--text); }
+  .sport-tab .sport-icon { margin-right: 6px; }
+
+  /* ── Main layout ── */
+  main { max-width: 1300px; margin: 0 auto; padding: 20px 24px; }
+
+  /* ── Stats row ── */
+  .stats-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 18px; }
+  .stat-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; }
+  .stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px; }
+  .stat-value { font-size: 24px; font-weight: 700; }
+  .stat-value.green { color: var(--green); }
+  .stat-value.yellow { color: var(--yellow); }
+  .stat-value.blue { color: var(--blue); }
+  .stat-value.red { color: var(--red); }
+  .stat-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+  /* ── Scan status bar ── */
+  .scan-status { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 10px 14px; margin-bottom: 14px; display: flex; align-items: center; gap: 10px; font-size: 13px; color: var(--muted); }
+  .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 2s infinite; flex-shrink: 0; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+  .pulse.idle { background: var(--muted); animation: none; }
+
+  /* ── Live banner ── */
+  .live-banner { background: var(--green-dim); border: 1px solid var(--green); border-radius: var(--radius); padding: 10px 16px; margin-bottom: 12px; display: flex; align-items: center; gap: 12px; font-size: 13px; }
+  .live-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); animation: pulse 1.5s infinite; flex-shrink: 0; }
+
+  /* ── Sub-tabs ── */
+  .tabs { display: flex; gap: 2px; border-bottom: 1px solid var(--border); margin-bottom: 16px; flex-wrap: wrap; }
+  .tab { padding: 8px 16px; cursor: pointer; border-bottom: 2px solid transparent; color: var(--muted); font-size: 13px; font-weight: 500; transition: color 0.15s; white-space: nowrap; }
+  .tab.active { border-bottom-color: var(--green); color: var(--text); }
+  .tab:hover { color: var(--text); }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── Section header ── */
+  .section-header { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; flex-wrap: wrap; }
+  .section-title { font-size: 15px; font-weight: 600; }
+  .count-badge { background: var(--green-dim); color: var(--green); border-radius: 12px; padding: 2px 8px; font-size: 11px; font-weight: 600; }
+  .count-badge.yellow { background: var(--yellow-dim); color: var(--yellow); }
+  .count-badge.muted { background: var(--surface); color: var(--muted); border: 1px solid var(--border); }
+  .bankroll-note { margin-left: auto; font-size: 12px; color: var(--muted); }
+
+  /* ── Edge cards ── */
+  .edge-list { display: flex; flex-direction: column; gap: 8px; }
+  .edge-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
+  .edge-card.high   { border-left: 3px solid var(--green); }
+  .edge-card.medium { border-left: 3px solid var(--yellow); }
+  .edge-card.low    { border-left: 3px solid var(--muted); }
+
+  .edge-top { display: flex; align-items: center; gap: 10px; padding: 12px 14px; flex-wrap: wrap; }
+  .edge-conf { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.6px; border-radius: 4px; padding: 3px 7px; white-space: nowrap; }
+  .edge-conf.HIGH   { background: var(--green-dim); color: var(--green); }
+  .edge-conf.MEDIUM { background: var(--yellow-dim); color: var(--yellow); }
+  .edge-conf.LOW    { background: var(--surface2); color: var(--muted); border: 1px solid var(--border); }
+
+  .edge-main { flex: 1; min-width: 160px; }
+  .edge-player { font-weight: 700; font-size: 15px; }
+  .edge-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+  .edge-label { font-weight: 600; font-size: 14px; }
+
+  .edge-type { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
+  .edge-type.outright,.edge-type.game  { background: var(--blue-dim); color: var(--blue); }
+  .edge-type.series                    { background: var(--blue-dim); color: var(--blue); }
+  .edge-type.prop                      { background: #1a2a0d; color: #7ee787; }
+  .edge-type.top5,.edge-type.top10,.edge-type.top20 { background: var(--purple-dim); color: var(--purple); }
+  .edge-type.champ,.edge-type.conf,.edge-type.finals { background: var(--purple-dim); color: var(--purple); }
+  .edge-type.combo,.edge-type.mve      { background: var(--orange-dim); color: var(--orange); }
+
+  .source-badge { font-size: 10px; font-weight: 600; text-transform: uppercase; border-radius: 4px; padding: 2px 6px; white-space: nowrap; }
+  .source-books { background: var(--blue-dim); color: var(--blue); }
+  .source-model { background: #0a1a2a; color: #79c0ff; }
+
+  .edge-stats { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+  .edge-stat { text-align: center; }
+  .edge-stat-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+  .edge-stat-val { font-size: 15px; font-weight: 700; margin-top: 1px; }
+
+  .ev-pill { border-radius: 20px; padding: 4px 10px; font-size: 12px; font-weight: 700; }
+  .ev-high { background: var(--green-dim); color: var(--green); }
+  .ev-mid  { background: var(--yellow-dim); color: var(--yellow); }
+  .ev-low  { background: #1a1a2e; color: #8b8fff; }
+
+  .side-yes { color: var(--green); font-weight: 700; }
+  .side-no  { color: var(--red); font-weight: 700; }
+
+  .gap-badge { background: var(--surface2); border: 1px solid var(--border); border-radius: 4px; padding: 2px 7px; font-size: 11px; font-weight: 600; }
+
+  .edge-reasoning { padding: 8px 14px 10px; border-top: 1px solid var(--border); background: var(--surface2); font-size: 12px; color: var(--muted); line-height: 1.5; }
+  .edge-reasoning strong { color: var(--text); }
+
+  /* ── Tables (leaderboard, full field) ── */
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; min-width: 500px; }
+  thead th { background: var(--surface2); color: var(--muted); font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); white-space: nowrap; }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--surface2); }
+  td { padding: 9px 12px; vertical-align: middle; font-size: 13px; }
+  .text-green { color: var(--green); }
+  .text-red   { color: var(--red); }
+  .text-muted { color: var(--muted); }
+  .text-yellow { color: var(--yellow); }
+
+  /* ── Parlay cards ── */
+  .parlay-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 14px 16px; margin-bottom: 10px; }
+  .parlay-type { font-size: 11px; font-weight: 700; text-transform: uppercase; color: var(--orange); margin-bottom: 8px; letter-spacing: 0.5px; }
+  .parlay-legs { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .parlay-leg { font-size: 13px; color: var(--text); padding: 4px 8px; background: var(--surface2); border-radius: 4px; }
+  .parlay-meta { display: flex; gap: 16px; font-size: 12px; color: var(--muted); flex-wrap: wrap; }
+  .parlay-ev { color: var(--green); font-weight: 700; }
+
+  /* ── History ── */
+  .history-grid { display: flex; flex-direction: column; gap: 8px; }
+  .history-row { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 12px 16px; display: flex; align-items: center; gap: 16px; font-size: 13px; flex-wrap: wrap; }
+  .history-date { color: var(--muted); min-width: 160px; }
+
+  /* ── Misc ── */
+  .empty { text-align: center; padding: 48px; color: var(--muted); }
+  .empty-icon { font-size: 32px; margin-bottom: 8px; }
+  .no-data { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 32px; text-align: center; color: var(--muted); }
+  .no-data h3 { color: var(--text); margin-bottom: 8px; }
+
+  .footer { text-align: center; padding: 20px; color: var(--muted); font-size: 12px; border-top: 1px solid var(--border); margin-top: 28px; }
+
+  #loading-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.78); z-index: 100; align-items: center; justify-content: center; flex-direction: column; gap: 12px; }
+  #loading-overlay.show { display: flex; }
+  .spinner { width: 36px; height: 36px; border: 3px solid var(--border); border-top-color: var(--green); border-radius: 50%; animation: spin 0.8s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .loading-text { color: var(--text); font-size: 14px; }
+
+  /* ── Performance ── */
+  .perf-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; margin-bottom: 20px; }
+</style>
+</head>
+<body>
+
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loading-text">Scanning Kalshi + sportsbooks...</div>
+</div>
+
+<header>
+  <div class="logo">Kalshi<span>Edge</span></div>
+  <div class="header-meta">
+    <div class="badge" id="scan-time">Last scan: —</div>
+    <div class="badge live" id="market-count">— markets</div>
+    <button class="scan-btn" id="scan-btn" onclick="triggerScan()">⟳ Scan Now</button>
+  </div>
+</header>
+
+<!-- Sport switcher -->
+<div class="sport-switcher">
+  <div class="sport-tab active" id="sport-nba" onclick="switchSport('nba')">
+    <span class="sport-icon">🏀</span>NBA
+  </div>
+  <div class="sport-tab" id="sport-pga" onclick="switchSport('pga')">
+    <span class="sport-icon">⛳</span>PGA Golf
+  </div>
+</div>
+
+<main>
+
+<!-- ════════════════════ NBA SECTION ════════════════════ -->
+<div id="section-nba">
+
+  <div class="scan-status" id="nba-status-bar">
+    <div class="pulse idle" id="nba-pulse"></div>
+    <span id="nba-status-text">Loading NBA scan...</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">HIGH Conf Bets</div>
+      <div class="stat-value green" id="nba-s-actionable">—</div>
+      <div class="stat-sub">sportsbook confirmed</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Best EV</div>
+      <div class="stat-value yellow" id="nba-s-bestev">—</div>
+      <div class="stat-sub">top edge found</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Game Edges</div>
+      <div class="stat-value blue" id="nba-s-games">—</div>
+      <div class="stat-sub">moneyline anchored</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Prop Edges</div>
+      <div class="stat-value" id="nba-s-props">—</div>
+      <div class="stat-sub">player props</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Markets Scanned</div>
+      <div class="stat-value" id="nba-s-markets">—</div>
+      <div class="stat-sub">open NBA markets</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Bankroll</div>
+      <div class="stat-value blue">$<span id="nba-s-bankroll">—</span></div>
+      <div class="stat-sub">Kelly basis</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="nbaSwitchTab('bets')">Today's Bets</div>
+    <div class="tab" onclick="nbaSwitchTab('parlays')">Parlays</div>
+    <div class="tab" onclick="nbaSwitchTab('watchlist')">Watchlist</div>
+    <div class="tab" onclick="nbaSwitchTab('history')">History</div>
+    <div class="tab" onclick="nbaSwitchTab('perf')">Performance</div>
+  </div>
+
+  <div class="tab-panel active" id="nba-tab-bets">
+    <div class="section-header">
+      <div class="section-title">HIGH Confidence Edges</div>
+      <div class="count-badge" id="nba-action-count">0</div>
+      <div class="bankroll-note">Bankroll: $<span id="nba-bankroll">—</span></div>
+    </div>
+    <div id="nba-bets-list"></div>
+  </div>
+
+  <div class="tab-panel" id="nba-tab-parlays">
+    <div class="section-header">
+      <div class="section-title">Parlays &amp; Portfolios</div>
+    </div>
+    <div id="nba-parlays-list"></div>
+  </div>
+
+  <div class="tab-panel" id="nba-tab-watchlist">
+    <div class="section-header">
+      <div class="section-title">Watchlist — Low Confidence</div>
+      <div class="count-badge muted" id="nba-watch-count">0</div>
+    </div>
+    <div id="nba-watchlist-list"></div>
+  </div>
+
+  <div class="tab-panel" id="nba-tab-history">
+    <div class="section-header">
+      <div class="section-title">Scan History</div>
+    </div>
+    <div class="history-grid" id="nba-history-list"></div>
+  </div>
+
+  <div class="tab-panel" id="nba-tab-perf">
+    <div class="section-header">
+      <div class="section-title">Performance</div>
+    </div>
+    <div id="nba-perf-content"></div>
+  </div>
+
+</div><!-- /section-nba -->
+
+
+<!-- ════════════════════ PGA SECTION ════════════════════ -->
+<div id="section-pga" style="display:none">
+
+  <div class="scan-status" id="pga-status-bar">
+    <div class="pulse idle" id="pga-pulse"></div>
+    <span id="pga-status-text">Loading PGA scan...</span>
+  </div>
+
+  <!-- Live tournament banner -->
+  <div class="live-banner" id="pga-live-banner" style="display:none">
+    <div class="live-dot"></div>
+    <span id="pga-live-text">Live tournament in progress...</span>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat-card">
+      <div class="stat-label">HIGH Conf Bets</div>
+      <div class="stat-value green" id="pga-s-actionable">—</div>
+      <div class="stat-sub">actionable edges</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Best EV</div>
+      <div class="stat-value yellow" id="pga-s-bestev">—</div>
+      <div class="stat-sub">top edge found</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">YES Bets</div>
+      <div class="stat-value green" id="pga-s-yes">—</div>
+      <div class="stat-sub">underpriced</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">NO Bets</div>
+      <div class="stat-value red" id="pga-s-no">—</div>
+      <div class="stat-sub">overpriced</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Days to PGA Champ</div>
+      <div class="stat-value blue" id="pga-s-days">—</div>
+      <div class="stat-sub">May 14, 2026</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-label">Bankroll</div>
+      <div class="stat-value blue">$<span id="pga-s-bankroll">—</span></div>
+      <div class="stat-sub">Kelly basis</div>
+    </div>
+  </div>
+
+  <div class="tabs">
+    <div class="tab active" onclick="pgaSwitchTab('bets')">Today's Bets</div>
+    <div class="tab" onclick="pgaSwitchTab('live')">Live Leaderboard</div>
+    <div class="tab" onclick="pgaSwitchTab('parlays')">Parlays</div>
+    <div class="tab" onclick="pgaSwitchTab('field')">Full Field</div>
+    <div class="tab" onclick="pgaSwitchTab('watchlist')">Watchlist</div>
+    <div class="tab" onclick="pgaSwitchTab('history')">History</div>
+  </div>
+
+  <div class="tab-panel active" id="pga-tab-bets">
+    <div class="section-header">
+      <div class="section-title">HIGH Confidence Edges</div>
+      <div class="count-badge" id="pga-action-count">0</div>
+      <div class="bankroll-note">Bankroll: $<span id="pga-bankroll">—</span></div>
+    </div>
+    <div id="pga-bets-list"></div>
+  </div>
+
+  <div class="tab-panel" id="pga-tab-live">
+    <div class="section-header">
+      <div class="section-title">Live Leaderboard</div>
+    </div>
+    <div id="pga-leaderboard-content">
+      <div class="no-data"><div class="empty-icon">⛳</div><h3>No live event</h3><p>Leaderboard appears when a round is in progress.</p></div>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="pga-tab-parlays">
+    <div class="section-header">
+      <div class="section-title">Parlays &amp; Portfolios</div>
+    </div>
+    <div id="pga-parlays-list"></div>
+  </div>
+
+  <div class="tab-panel" id="pga-tab-field">
+    <div class="section-header">
+      <div class="section-title">Full Field — All Edges</div>
+      <div class="count-badge muted" id="pga-field-count">0</div>
+    </div>
+    <div class="table-wrap">
+      <table id="pga-field-table">
+        <thead><tr>
+          <th>Player</th><th>Tournament</th><th>Type</th><th>Side</th>
+          <th>Model%</th><th>Kalshi¢</th><th>Gap</th><th>EV</th><th>Kelly$</th><th>Conf</th>
+        </tr></thead>
+        <tbody id="pga-field-body"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="tab-panel" id="pga-tab-watchlist">
+    <div class="section-header">
+      <div class="section-title">Watchlist — Low Confidence</div>
+      <div class="count-badge muted" id="pga-watch-count">0</div>
+    </div>
+    <div id="pga-watchlist-list"></div>
+  </div>
+
+  <div class="tab-panel" id="pga-tab-history">
+    <div class="section-header">
+      <div class="section-title">Scan History</div>
+    </div>
+    <div class="history-grid" id="pga-history-list"></div>
+  </div>
+
+</div><!-- /section-pga -->
+
+</main>
+
+<div class="footer">Kalshi Edge Scanner · Auto-refreshes every 3 min · <span id="footer-time"></span></div>
+
+<script>
+// ─── State ────────────────────────────────────────────────────────────────────
+let currentSport = 'nba';
+let nbaScan = null, pgaScan = null;
+let nbaActiveTab = 'bets', pgaActiveTab = 'bets';
+let autoRefreshTimer = null;
+
+// ─── Sport switching ──────────────────────────────────────────────────────────
+function switchSport(sport) {
+  currentSport = sport;
+  document.getElementById('section-nba').style.display = sport === 'nba' ? '' : 'none';
+  document.getElementById('section-pga').style.display = sport === 'pga' ? '' : 'none';
+  document.getElementById('sport-nba').classList.toggle('active', sport === 'nba');
+  document.getElementById('sport-pga').classList.toggle('active', sport === 'pga');
+  updateHeader();
+}
+
+// ─── Sub-tab switching ────────────────────────────────────────────────────────
+function nbaSwitchTab(name) {
+  nbaActiveTab = name;
+  _switchTabs('nba', ['bets','parlays','watchlist','history','perf'], name);
+  if (name === 'history') loadNbaHistory();
+  if (name === 'perf') loadNbaPerf();
+}
+
+function pgaSwitchTab(name) {
+  pgaActiveTab = name;
+  _switchTabs('pga', ['bets','live','parlays','field','watchlist','history'], name);
+  if (name === 'live') loadPgaLeaderboard();
+  if (name === 'history') loadPgaHistory();
+}
+
+function _switchTabs(prefix, names, active) {
+  const section = document.getElementById('section-' + prefix);
+  const tabs = section.querySelectorAll('.tab');
+  const panels = section.querySelectorAll('.tab-panel');
+  tabs.forEach((t, i) => t.classList.toggle('active', names[i] === active));
+  panels.forEach(p => p.classList.toggle('active', p.id === `${prefix}-tab-${active}`));
+}
+
+// ─── Header update ────────────────────────────────────────────────────────────
+function updateHeader() {
+  const scan = currentSport === 'nba' ? nbaScan : pgaScan;
+  if (!scan) return;
+  const t = new Date(scan.scanned_at);
+  document.getElementById('scan-time').textContent = 'Last scan: ' + t.toLocaleTimeString();
+  document.getElementById('market-count').textContent = (scan.total_markets || 0) + ' markets';
+}
+
+// ─── Scan trigger ─────────────────────────────────────────────────────────────
+async function triggerScan() {
+  const btn = document.getElementById('scan-btn');
+  btn.disabled = true;
+  document.getElementById('loading-text').textContent =
+    currentSport === 'nba' ? 'Scanning NBA markets...' : 'Scanning PGA markets...';
+  document.getElementById('loading-overlay').classList.add('show');
+
+  try {
+    const r = await fetch(`/api/${currentSport}/scan`, { method: 'POST' });
+    const data = await r.json();
+    if (currentSport === 'nba') { nbaScan = data; renderNba(); }
+    else { pgaScan = data; renderPga(); }
+  } catch(e) {
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+    document.getElementById('loading-overlay').classList.remove('show');
+  }
+}
+
+// ─── Load data ────────────────────────────────────────────────────────────────
+async function loadNba() {
+  try {
+    const [scan, status] = await Promise.all([
+      fetch('/api/nba/latest').then(r => r.json()),
+      fetch('/api/nba/status').then(r => r.json()),
+    ]);
+    if (scan.error) { setNbaStatus('No NBA scan yet — click Scan Now', false); return; }
+    nbaScan = scan;
+    nbaScan._bankroll = status.bankroll;
+    renderNba();
+  } catch(e) {
+    setNbaStatus('Failed to load NBA data', false);
+  }
+}
+
+async function loadPga() {
+  try {
+    const [scan, status] = await Promise.all([
+      fetch('/api/pga/latest').then(r => r.json()),
+      fetch('/api/pga/status').then(r => r.json()),
+    ]);
+    if (!scan.error) {
+      pgaScan = scan;
+      pgaScan._bankroll = status.bankroll;
+      pgaScan._days_pga = status.days_to_pga;
+    }
+    renderPga();
+    // Check for live leaderboard
+    try {
+      const lb = await fetch('/api/pga/leaderboard').then(r => r.json());
+      if (!lb.error) updatePgaBanner(lb);
+    } catch {}
+  } catch(e) {
+    setPgaStatus('Failed to load PGA data', false);
+  }
+}
+
+async function loadNbaHistory() {
+  const data = await fetch('/api/nba/history').then(r => r.json()).catch(() => []);
+  renderNbaHistory(data);
+}
+
+async function loadPgaHistory() {
+  const data = await fetch('/api/pga/history').then(r => r.json()).catch(() => []);
+  renderPgaHistory(data);
+}
+
+async function loadNbaPerf() {
+  const data = await fetch('/api/nba/performance').then(r => r.json()).catch(() => null);
+  renderNbaPerf(data);
+}
+
+async function loadPgaLeaderboard() {
+  const el = document.getElementById('pga-leaderboard-content');
+  el.innerHTML = '<div class="no-data"><div class="spinner" style="margin:auto"></div></div>';
+  try {
+    const data = await fetch('/api/pga/leaderboard').then(r => r.json());
+    if (data.error) {
+      el.innerHTML = '<div class="no-data"><div class="empty-icon">⛳</div><h3>No live event</h3><p>Leaderboard appears when a round is in progress.</p></div>';
+      return;
+    }
+    renderLeaderboard(data, el);
+    updatePgaBanner(data);
+  } catch(e) {
+    el.innerHTML = '<div class="no-data"><h3>Failed to load leaderboard</h3></div>';
+  }
+}
+
+// ─── Render NBA ───────────────────────────────────────────────────────────────
+function renderNba() {
+  if (!nbaScan) return;
+  const edges = nbaScan.edges || [];
+  const sum = nbaScan.summary || {};
+  const bankroll = nbaScan._bankroll || 1000;
+
+  // Status bar
+  setNbaStatus(`${edges.length} edges found · ${sum.actionable || 0} actionable`, true);
+
+  // Stats
+  document.getElementById('nba-s-actionable').textContent = sum.actionable || 0;
+  document.getElementById('nba-s-bestev').textContent = sum.top_ev ? sum.top_ev + '%' : '—';
+  document.getElementById('nba-s-games').textContent = sum.game_edges || 0;
+  document.getElementById('nba-s-props').textContent = sum.prop_edges || 0;
+  document.getElementById('nba-s-markets').textContent = nbaScan.total_markets || 0;
+  document.getElementById('nba-s-bankroll').textContent = bankroll;
+  document.getElementById('nba-bankroll').textContent = bankroll;
+
+  // Bets tab
+  const actionable = edges.filter(e => e.actionable);
+  const low = edges.filter(e => !e.actionable && e.confidence !== 'HIGH');
+  document.getElementById('nba-action-count').textContent = actionable.length;
+  document.getElementById('nba-watch-count').textContent = low.length;
+
+  document.getElementById('nba-bets-list').innerHTML = actionable.length
+    ? actionable.map(e => renderNbaCard(e)).join('')
+    : '<div class="no-data"><div class="empty-icon">🏀</div><h3>No actionable NBA edges</h3><p>Try scanning now or check back later.</p></div>';
+
+  document.getElementById('nba-watchlist-list').innerHTML = low.length
+    ? low.slice(0, 30).map(e => renderNbaCard(e)).join('')
+    : '<div class="no-data"><p>No watchlist items.</p></div>';
+
+  // Parlays
+  const parlays = nbaScan.parlays || [];
+  document.getElementById('nba-parlays-list').innerHTML = parlays.length
+    ? parlays.map(p => renderParlayCard(p)).join('')
+    : '<div class="no-data"><p>No parlays found — need 2+ HIGH conf edges in different tournaments.</p></div>';
+
+  updateHeader();
+}
+
+function renderNbaCard(e) {
+  const evCls = e.best_ev > 0.08 ? 'ev-high' : e.best_ev > 0.04 ? 'ev-mid' : 'ev-low';
+  const sideCls = e.best_side === 'YES' ? 'side-yes' : 'side-no';
+  const mtype = (e.market_type || 'game').toLowerCase();
+
+  return `<div class="edge-card ${(e.confidence||'').toLowerCase()}">
+  <div class="edge-top">
+    <div class="edge-conf ${e.confidence}">${e.confidence}</div>
+    <div class="edge-main">
+      <div class="edge-label">${esc(e.label || e.player || '—')}</div>
+      <div class="edge-sub">${esc(e.tournament || '')}${e.game_date ? ' · ' + e.game_date : ''}</div>
+    </div>
+    <div class="edge-type ${mtype}">${mtype}</div>
+    <div class="edge-stats">
+      <div class="edge-stat">
+        <div class="edge-stat-label">Model</div>
+        <div class="edge-stat-val">${pct(e.true_prob || e.sb_prob)}</div>
+      </div>
+      <div class="edge-stat">
+        <div class="edge-stat-label">Kalshi</div>
+        <div class="edge-stat-val">${e.yes_ask || e.kalshi_price || '—'}¢</div>
+      </div>
+      <div class="edge-stat">
+        <div class="edge-stat-label">Gap</div>
+        <div class="edge-stat-val gap-badge">${(e.gap_pp||0).toFixed(1)}pp</div>
+      </div>
+      <div class="edge-stat">
+        <div class="edge-stat-label">EV</div>
+        <div class="ev-pill ${evCls}">${pct(e.best_ev)}</div>
+      </div>
+      <div class="edge-stat">
+        <div class="edge-stat-label">Bet</div>
+        <div class="edge-stat-val ${sideCls}">${e.best_side} $${e['bet_size_$'] || '—'}</div>
+      </div>
+    </div>
+  </div>
+  ${e.reasoning ? `<div class="edge-reasoning">${esc(e.reasoning)}</div>` : ''}
+</div>`;
+}
+
+// ─── Render PGA ───────────────────────────────────────────────────────────────
+function renderPga() {
+  if (!pgaScan && !pgaScan) { setPgaStatus('No PGA scan yet — click Scan Now', false); return; }
+  const scan = pgaScan;
+  if (!scan) return;
+  const edges = scan.edges || [];
+  const sum = scan.summary || {};
+
+  setPgaStatus(`${edges.length} edges found · ${sum.actionable || 0} actionable`, true);
+
+  // Stats
+  document.getElementById('pga-s-actionable').textContent = sum.actionable || 0;
+  document.getElementById('pga-s-bestev').textContent = sum.top_ev ? sum.top_ev + '%' : '—';
+  document.getElementById('pga-s-yes').textContent = sum.yes_edges || 0;
+  document.getElementById('pga-s-no').textContent = sum.no_edges || 0;
+  document.getElementById('pga-s-days').textContent = scan._days_pga ?? '—';
+  document.getElementById('pga-s-bankroll').textContent = scan._bankroll || 1000;
+  document.getElementById('pga-bankroll').textContent = scan._bankroll || 1000;
+
+  const actionable = edges.filter(e => e.actionable);
+  const lowEdges = edges.filter(e => !e.actionable);
+  document.getElementById('pga-action-count').textContent = actionable.length;
+  document.getElementById('pga-watch-count').textContent = lowEdges.length;
+
+  // Bets tab — split live vs pre-tournament
+  const liveEdges = actionable.filter(e => e.market_type && e.market_type.startsWith('top'));
+  const outrightEdges = actionable.filter(e => !e.market_type || e.market_type === 'outright');
+
+  let betsHtml = '';
+  if (liveEdges.length) {
+    betsHtml += `<div class="section-header"><div class="section-title">Live In-Round Positions</div><div class="count-badge">${liveEdges.length}</div></div>`;
+    betsHtml += '<div class="edge-list">' + liveEdges.map(e => renderPgaCard(e)).join('') + '</div>';
+    betsHtml += '<br>';
+  }
+  if (outrightEdges.length) {
+    betsHtml += `<div class="section-header"><div class="section-title">Outright Winner Markets</div><div class="count-badge">${outrightEdges.length}</div></div>`;
+    betsHtml += '<div class="edge-list">' + outrightEdges.map(e => renderPgaCard(e)).join('') + '</div>';
+  }
+  if (!betsHtml) {
+    betsHtml = '<div class="no-data"><div class="empty-icon">⛳</div><h3>No actionable PGA edges</h3><p>Try scanning now. Best edges appear during major tournaments.</p></div>';
+  }
+  document.getElementById('pga-bets-list').innerHTML = betsHtml;
+
+  // Full field table
+  document.getElementById('pga-field-count').textContent = edges.length;
+  const tbody = document.getElementById('pga-field-body');
+  tbody.innerHTML = edges.map(e => {
+    const sideCls = e.best_side === 'YES' ? 'text-green' : 'text-red';
+    const mtype = (e.market_type || 'outright').toLowerCase();
+    return `<tr>
+      <td><strong>${esc(e.player||'')}</strong></td>
+      <td class="text-muted">${esc(e.tournament||'').replace('2026 ','')}</td>
+      <td><span class="edge-type ${mtype}">${mtype.replace('top','TOP ')}</span></td>
+      <td class="${sideCls}">${e.best_side}</td>
+      <td>${pct(e.true_prob)}</td>
+      <td>${e.yes_ask}¢</td>
+      <td class="gap-badge">${(e.gap_pp||0).toFixed(1)}pp</td>
+      <td class="${e.best_ev > 0.07 ? 'text-green' : 'text-yellow'}">${pct(e.best_ev)}</td>
+      <td>$${e['bet_size_$']||'—'}</td>
+      <td><span class="edge-conf ${e.confidence}">${e.confidence}</span></td>
+    </tr>`;
+  }).join('');
+
+  // Watchlist
+  document.getElementById('pga-watchlist-list').innerHTML = lowEdges.length
+    ? '<div class="edge-list">' + lowEdges.slice(0, 30).map(e => renderPgaCard(e)).join('') + '</div>'
+    : '<div class="no-data"><p>No watchlist items.</p></div>';
+
+  // Parlays
+  const parlays = scan.parlays || [];
+  document.getElementById('pga-parlays-list').innerHTML = parlays.length
+    ? parlays.map(p => renderParlayCard(p)).join('')
+    : '<div class="no-data"><p>No parlays found.</p></div>';
+
+  updateHeader();
+}
+
+function renderPgaCard(e) {
+  const evCls = e.best_ev > 0.08 ? 'ev-high' : e.best_ev > 0.04 ? 'ev-mid' : 'ev-low';
+  const sideCls = e.best_side === 'YES' ? 'side-yes' : 'side-no';
+  const isLive = e.market_type && e.market_type.startsWith('top');
+  const mtype = (e.market_type || 'outright').toLowerCase();
+  const typeLabel = mtype.startsWith('top') ? mtype.replace('top', 'TOP ').trim() : mtype.toUpperCase();
+
+  const posInfo = isLive
+    ? `<div class="source-badge source-model">LIVE MODEL</div>`
+    : `<div class="source-badge source-books">BOOKS</div>`;
+
+  const subLine = isLive
+    ? `#${e.position || '?'} (${e.score_str || 'E'}) · ${e.holes_remaining || '?'}h left · ${e.position_label || ''}`
+    : (e.tournament || '');
+
+  return `<div class="edge-card ${(e.confidence||'').toLowerCase()}">
+  <div class="edge-top">
+    <div class="edge-conf ${e.confidence}">${e.confidence}</div>
+    <div class="edge-main">
+      <div class="edge-player">${esc(e.player || '—')}</div>
+      <div class="edge-sub">${esc(subLine)}</div>
+    </div>
+    <div class="edge-type ${mtype}">${typeLabel}</div>
+    ${posInfo}
+    <div class="edge-stats">
+      <div class="edge-stat">
+        <div class="edge-stat-label">Model%</div>
+        <div class="edge-stat-val">${pct(e.true_prob)}</div>
+      </div>
+      <div class="edge-stat">
+        <div class="edge-stat-label">Kalshi</div>
+        <div class="edge-stat-val">${e.yes_ask || '—'}¢</div>
+      </div>
+      <div class="edge-stat">
+        <div class="edge-stat-label">Gap</div>
+        <div class="edge-stat-val gap-badge">${(e.gap_pp||0).toFixed(1)}pp</div>
+      </div>
+      <div class="edge-stat">
+        <div class="edge-stat-label">EV</div>
+        <div class="ev-pill ${evCls}">${pct(e.best_ev)}</div>
+      </div>
+      <div class="edge-stat">
+        <div class="edge-stat-label">Bet</div>
+        <div class="edge-stat-val ${sideCls}">${e.best_side} $${e['bet_size_$'] || '—'}</div>
+      </div>
+    </div>
+  </div>
+  ${e.reasoning ? `<div class="edge-reasoning">${esc(e.reasoning)}</div>` : ''}
+</div>`;
+}
+
+// ─── Parlay cards ─────────────────────────────────────────────────────────────
+function renderParlayCard(p) {
+  const legs = (p.recommended_bets || p.legs_detail || []);
+  return `<div class="parlay-card">
+  <div class="parlay-type">${esc(p.type || 'Parlay')}</div>
+  <div class="parlay-legs">${legs.map(l => `<div class="parlay-leg">→ ${esc(String(l))}</div>`).join('')}</div>
+  <div class="parlay-meta">
+    <span>Combined prob: <strong>${pct(p.combined_true_prob)}</strong></span>
+    <span>Kalshi cost: <strong>${pct(p.combined_kalshi_price)}</strong></span>
+    <span class="parlay-ev">EV: ${pct(p.parlay_ev)}</span>
+    <span>Kelly: $${p.total_kelly_exposure || '—'}</span>
+  </div>
+  ${p.recommendation ? `<div style="font-size:12px;color:var(--muted);margin-top:8px">${esc(p.recommendation)}</div>` : ''}
+</div>`;
+}
+
+// ─── Leaderboard ──────────────────────────────────────────────────────────────
+function renderLeaderboard(data, container) {
+  const players = data.players || [];
+  if (!players.length) {
+    container.innerHTML = '<div class="no-data"><p>No players found.</p></div>';
+    return;
+  }
+  const rows = players.map(p => {
+    const sc = p.score_int === 0 ? 'E' : (p.score_int > 0 ? '+' + p.score_int : String(p.score_int));
+    const cls = p.score_int < 0 ? 'text-green' : (p.score_int > 0 ? 'text-red' : '');
+    return `<tr>
+      <td><strong>${p.position}</strong></td>
+      <td>${esc(p.name)}</td>
+      <td class="${cls} " style="font-weight:700;font-size:15px">${sc}</td>
+      <td class="text-muted">${p.holes_done_today !== undefined ? p.holes_done_today + 'h' : '—'}</td>
+    </tr>`;
+  }).join('');
+  container.innerHTML = `
+    <div style="margin-bottom:10px;font-size:13px;color:var(--muted)">
+      ${esc(data.event_name)} · Round ${data.round} · ${data.status === 'in' ? '<span style="color:var(--green)">▶ Live</span>' : esc(data.status)}
+      · ${data.holes_remaining}h remaining in round
+    </div>
+    <div class="table-wrap"><table>
+      <thead><tr><th>Pos</th><th>Player</th><th>Score</th><th>Holes Today</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table></div>`;
+}
+
+function updatePgaBanner(lb) {
+  const banner = document.getElementById('pga-live-banner');
+  const text = document.getElementById('pga-live-text');
+  if (!lb || lb.error || lb.status === 'pre' || lb.status === 'post') {
+    banner.style.display = 'none';
+    return;
+  }
+  banner.style.display = 'flex';
+  text.textContent = `${lb.event_name} · Round ${lb.round} · ${lb.holes_remaining}h left · Leader: ${lb.players?.[0]?.name || '—'}`;
+}
+
+// ─── History ──────────────────────────────────────────────────────────────────
+function renderNbaHistory(rows) {
+  const el = document.getElementById('nba-history-list');
+  el.innerHTML = rows.length ? rows.map(r => {
+    const s = r.summary || {};
+    return `<div class="history-row">
+      <span class="history-date">${new Date(r.scanned_at).toLocaleString()}</span>
+      <span>${r.total_markets} markets</span>
+      <span class="text-green">${s.actionable||0} actionable</span>
+      <span class="text-muted">${s.game_edges||0} game · ${s.prop_edges||0} prop</span>
+      <span class="text-yellow">Best EV: ${s.top_ev||0}%</span>
+    </div>`;
+  }).join('') : '<div class="no-data"><p>No history yet.</p></div>';
+}
+
+function renderPgaHistory(rows) {
+  const el = document.getElementById('pga-history-list');
+  el.innerHTML = rows.length ? rows.map(r => {
+    const s = r.summary || {};
+    return `<div class="history-row">
+      <span class="history-date">${new Date(r.scanned_at).toLocaleString()}</span>
+      <span>${r.total_markets} edges</span>
+      <span class="text-green">${s.actionable||0} actionable</span>
+      <span class="text-muted">YES: ${s.yes_edges||0} · NO: ${s.no_edges||0}</span>
+      <span class="text-yellow">Best EV: ${s.top_ev||0}%</span>
+    </div>`;
+  }).join('') : '<div class="no-data"><p>No PGA history yet.</p></div>';
+}
+
+// ─── Performance ──────────────────────────────────────────────────────────────
+function renderNbaPerf(data) {
+  const el = document.getElementById('nba-perf-content');
+  if (!data || !data.resolved) {
+    el.innerHTML = '<div class="no-data"><p>No resolved trades yet. Check back after placing bets.</p></div>';
+    return;
+  }
+  const pnlCls = data.total_pnl >= 0 ? 'text-green' : 'text-red';
+  el.innerHTML = `<div class="perf-grid">
+    <div class="stat-card"><div class="stat-label">Resolved</div><div class="stat-value">${data.resolved}</div></div>
+    <div class="stat-card"><div class="stat-label">Win Rate</div><div class="stat-value green">${(data.win_rate*100).toFixed(1)}%</div></div>
+    <div class="stat-card"><div class="stat-label">Total P&L</div><div class="stat-value ${pnlCls}">$${data.total_pnl}</div></div>
+  </div>
+  ${data.ev_buckets ? `<div class="section-title" style="margin-bottom:10px">By EV Bucket</div>
+  <div class="perf-grid">${Object.entries(data.ev_buckets).map(([k,v]) => `
+    <div class="stat-card">
+      <div class="stat-label">${k} EV</div>
+      <div class="stat-value">${v.count}</div>
+      <div class="stat-sub ${v.pnl >= 0 ? 'text-green' : 'text-red'}">$${v.pnl}</div>
+    </div>`).join('')}</div>` : ''}`;
+}
+
+// ─── Status helpers ───────────────────────────────────────────────────────────
+function setNbaStatus(msg, active) {
+  document.getElementById('nba-status-text').textContent = msg;
+  const dot = document.getElementById('nba-pulse');
+  dot.classList.toggle('idle', !active);
+}
+
+function setPgaStatus(msg, active) {
+  document.getElementById('pga-status-text').textContent = msg;
+  const dot = document.getElementById('pga-pulse');
+  dot.classList.toggle('idle', !active);
+}
+
+// ─── Utilities ────────────────────────────────────────────────────────────────
+function esc(s) {
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function pct(v) {
+  if (v == null) return '—';
+  return (v * 100).toFixed(1) + '%';
+}
+
+// ─── Auto-refresh ─────────────────────────────────────────────────────────────
+function scheduleRefresh() {
+  clearTimeout(autoRefreshTimer);
+  autoRefreshTimer = setTimeout(async () => {
+    await Promise.all([loadNba(), loadPga()]);
+    document.getElementById('footer-time').textContent = 'Updated ' + new Date().toLocaleTimeString();
+    scheduleRefresh();
+  }, 3 * 60 * 1000); // 3 min
+}
+
+// ─── Boot ─────────────────────────────────────────────────────────────────────
+(async function init() {
+  document.getElementById('footer-time').textContent = 'Loading...';
+  await Promise.all([loadNba(), loadPga()]);
+  document.getElementById('footer-time').textContent = 'Updated ' + new Date().toLocaleTimeString();
+  scheduleRefresh();
+})();
+</script>
+</body>
+</html>
