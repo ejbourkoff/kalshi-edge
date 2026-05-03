@@ -77,10 +77,18 @@ class OddsClient:
         Fetches player props (points, rebounds, assists) from sportsbooks.
         Returns implied over probabilities we can compare to Kalshi.
         """
-        prop_markets = ["player_points", "player_rebounds", "player_assists", "player_threes"]
+        # OddsAPI key → Kalshi stat type
+        prop_market_map = {
+            "player_points":   "points",
+            "player_rebounds":  "rebounds",
+            "player_assists":   "assists",
+            "player_threes":    "threes",
+            "player_blocks":    "blocks",
+            "player_steals":    "steals",
+        }
         results = []
 
-        for market_key in prop_markets:
+        for market_key, stat_type in prop_market_map.items():
             try:
                 data = self._get(
                     "/sports/basketball_nba/odds",
@@ -88,12 +96,11 @@ class OddsClient:
                         "regions": "us",
                         "markets": market_key,
                         "oddsFormat": "american",
+                        "bookmakers": "draftkings,fanduel,betmgm,caesars,pointsbet",
                     },
                 )
             except Exception:
                 continue
-
-            stat_type = market_key.replace("player_", "")
 
             for event in data:
                 for book in event.get("bookmakers", []):

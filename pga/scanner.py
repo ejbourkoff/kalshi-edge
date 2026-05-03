@@ -256,13 +256,32 @@ def scan_parlays(actionable_edges: list[dict]) -> list[dict]:
     return sorted(combos, key=lambda x: -x["parlay_ev"])[:10]
 
 
+def _auto_match_sport_key(tournament_name: str, sport_keys: list[str]) -> Optional[str]:
+    """
+    Fuzzy-match a Kalshi tournament name to an available OddsAPI sport key.
+    e.g. "2026 Cadillac Championship" → "golf_cadillac_championship_winner"
+    """
+    import re as _re
+    name = _re.sub(r'^\d{4}\s+', '', tournament_name.lower().strip())
+    name = name.replace("the ", "").strip()
+
+    best_sk, best_score = None, 0.0
+    for sk in sport_keys:
+        sk_name = sk.replace("golf_", "").replace("_winner", "").replace("_", " ")
+        score = SequenceMatcher(None, name, sk_name).ratio()
+        if score > best_score:
+            best_sk, best_score = sk, score
+
+    return best_sk if best_score >= 0.45 else None
+
+
 def run_scan() -> tuple[list[dict], list[dict]]:
     """
     Full PGA scan. Returns (all_edges, parlays).
 
     For each open tournament on Kalshi:
       1. Fetch all player outright markets
-      2. Match to sportsbook odds
+      2. Match to sportsbook odds (hardcoded key or auto-discovered)
       3. Find edges
     Also scans finishing-position markets (top 5/10/20) using live ESPN leaderboard.
     """
@@ -284,12 +303,18 @@ def run_scan() -> tuple[list[dict], list[dict]]:
 
     print("Fetching sportsbook consensus odds...")
     odds_client = OddsPGAClient()
+    available_sport_keys = odds_client.get_available_sports()
+    print(f"  Active golf sport keys: {available_sport_keys}")
 
     all_edges = []
     for tournament, markets in by_tournament.items():
         odds_key = by_odds_key.get(tournament)
         if not odds_key:
-            print(f"  {tournament}: no Odds API key mapped — skipping sportsbook anchoring")
+            odds_key = _auto_match_sport_key(tournament, available_sport_keys)
+            if odds_key:
+                print(f"  {tournament}: auto-matched → {odds_key}")
+        if not odds_key:
+            print(f"  {tournament}: no Odds API key found — skipping")
             continue
 
         sb_players = odds_client.get_tournament_outrights(odds_key)
