@@ -266,12 +266,16 @@ def scan_props(kalshi_markets: list[dict], sportsbook_props: list[dict]) -> list
             model_proj = None
             model_prob = None
         else:
-            # Fallback: use our model only (high uncertainty)
-            prob_result = estimate_prop_probability(player, stat, threshold)
-            true_prob = prob_result["estimated_true_prob"]
-            model_proj = prob_result["model_projection"]
-            model_prob = prob_result["model_prob"]
-            if true_prob is None:
+            # Fallback: use our model only (high uncertainty).
+            # Skip if model call fails/times out — sportsbook-anchored edges are more reliable.
+            try:
+                prob_result = estimate_prop_probability(player, stat, threshold)
+                true_prob = prob_result["estimated_true_prob"]
+                model_proj = prob_result["model_projection"]
+                model_prob = prob_result["model_prob"]
+                if true_prob is None:
+                    continue
+            except Exception:
                 continue
 
         kalshi_implied = market["yes_ask"] / 100

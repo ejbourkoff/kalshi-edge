@@ -268,7 +268,11 @@ async def pga_leaderboard():
 def _do_nba_scan() -> dict:
     global _nba_latest_parlays
     print(f"[{datetime.now().strftime('%H:%M:%S')}] Starting NBA scan...")
-    edges, parlays = nba_scanner.run_scan()
+    try:
+        edges, parlays = nba_scanner.run_scan()
+    except Exception as e:
+        print(f"[{datetime.now().strftime('%H:%M:%S')}] NBA scan error: {e}")
+        edges, parlays = [], []
     _nba_latest_parlays = parlays
 
     total = max(len(set(e.get("ticker", "") for e in edges if e.get("ticker"))), len(edges))
@@ -361,11 +365,14 @@ def _schedule_scans():
     # Startup scans if stale / missing
     for fn, db_mod, label in [(safe_nba, nba_db, "NBA"), (safe_pga, pga_db, "PGA")]:
         existing = db_mod.get_latest_scan()
-        if existing:
-            age = datetime.now() - datetime.fromisoformat(existing["scanned_at"])
-            if age < timedelta(hours=3):
-                print(f"  {label}: recent scan ({int(age.total_seconds()/60)}m ago), skipping")
-                continue
+        try:
+            if existing and existing.get("scanned_at") and existing.get("edges") is not None:
+                age = datetime.now() - datetime.fromisoformat(existing["scanned_at"])
+                if age < timedelta(hours=3):
+                    print(f"  {label}: recent scan ({int(age.total_seconds()/60)}m ago), skipping")
+                    continue
+        except Exception as e:
+            print(f"  {label}: stale/broken scan record ({e}), re-scanning")
         threading.Thread(target=fn, daemon=True).start()
 
 

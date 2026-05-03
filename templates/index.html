@@ -457,9 +457,10 @@ function _switchTabs(prefix, names, active) {
 // ─── Header update ────────────────────────────────────────────────────────────
 function updateHeader() {
   const scan = currentSport === 'nba' ? nbaScan : pgaScan;
-  if (!scan) return;
+  if (!scan || !scan.scanned_at) return;
   const t = new Date(scan.scanned_at);
-  document.getElementById('scan-time').textContent = 'Last scan: ' + t.toLocaleTimeString();
+  const timeStr = isNaN(t.getTime()) ? '—' : t.toLocaleTimeString();
+  document.getElementById('scan-time').textContent = 'Last scan: ' + timeStr;
   document.getElementById('market-count').textContent = (scan.total_markets || 0) + ' markets';
 }
 
@@ -485,13 +486,24 @@ async function triggerScan() {
 }
 
 // ─── Load data ────────────────────────────────────────────────────────────────
+let _nbaPolling = false, _pgaPolling = false;
+
 async function loadNba() {
   try {
     const [scan, status] = await Promise.all([
       fetch('/api/nba/latest').then(r => r.json()),
       fetch('/api/nba/status').then(r => r.json()),
     ]);
-    if (scan.error) { setNbaStatus('No NBA scan yet — click Scan Now', false); return; }
+    if (status.scanning && !_nbaPolling) {
+      // Scan in progress — show message and poll every 8s
+      setNbaStatus('🔄 NBA scan in progress...', true);
+      _nbaPolling = true;
+      setTimeout(async () => { _nbaPolling = false; await loadNba(); }, 8000);
+      if (scan.error) return; // no previous data to show
+    } else {
+      _nbaPolling = false;
+    }
+    if (scan.error) { setNbaStatus('No NBA data yet — click Scan Now to start', false); return; }
     nbaScan = scan;
     nbaScan._bankroll = status.bankroll;
     renderNba();
@@ -506,6 +518,14 @@ async function loadPga() {
       fetch('/api/pga/latest').then(r => r.json()),
       fetch('/api/pga/status').then(r => r.json()),
     ]);
+    if (status.scanning && !_pgaPolling) {
+      setPgaStatus('🔄 PGA scan in progress...', true);
+      _pgaPolling = true;
+      setTimeout(async () => { _pgaPolling = false; await loadPga(); }, 8000);
+      if (scan.error) return;
+    } else {
+      _pgaPolling = false;
+    }
     if (!scan.error) {
       pgaScan = scan;
       pgaScan._bankroll = status.bankroll;
